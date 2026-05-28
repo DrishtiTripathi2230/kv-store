@@ -1,0 +1,3 @@
+C:/Users/Drishti/Desktop/projectss/kv-store/build/CMakeFiles/kvserver.dir
+C:/Users/Drishti/Desktop/projectss/kv-store/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Drishti/Desktop/projectss/kv-store/build/CMakeFiles/ZERO_CHECK.dir

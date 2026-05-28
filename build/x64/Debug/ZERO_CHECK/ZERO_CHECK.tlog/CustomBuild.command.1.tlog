@@ -1,0 +1,10 @@
+^C:\USERS\DRISHTI\DESKTOP\PROJECTSS\KV-STORE\BUILD\CMAKEFILES\49C68BA22A4030E3DD55BEB012558B14\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Drishti/Desktop/projectss/kv-store -BC:/Users/Drishti/Desktop/projectss/kv-store/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Drishti/Desktop/projectss/kv-store/build/kv-store.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
