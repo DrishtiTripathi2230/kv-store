@@ -9,14 +9,14 @@ A Redis-like key-value store built from scratch in C++.
 - [ ] Benchmarks vs Redis
 
 ## Build
-\```bash
+```bash
 mkdir build && cd build
 cmake ..
 cmake --build .
 ./Debug/kvserver.exe
-\```
+```
 
 ## Usage
-\```
+```
 Coming soon: SET key value / GET key / DELETE key
-\```
+```
