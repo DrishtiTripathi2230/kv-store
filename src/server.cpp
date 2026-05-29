@@ -7,6 +7,40 @@
 
 Server::Server(int port) : port(port) {}
 
+//splits "set name Alice" into ["set", "name", "Alice"]
+
+std::vector<std::string> Server::parse_command(const std::string& command) {
+    std::vector<std::string> tokens;
+    size_t start = 0, end = 0;
+    while ((end = command.find(' ', start)) != std::string::npos) {
+        tokens.push_back(command.substr(start, end - start));
+        start = end + 1;
+    }
+    tokens.push_back(command.substr(start));
+    return tokens;
+}
+
+//takes token and does the actual work of setting/getting/deleting keys
+std::string Server::handle_command(const std::vector<std::string>& tokens) {
+    if (tokens.empty()) return "ERROR: Empty command\n";
+
+    const std::string& cmd = tokens[0];
+    if (cmd == "set") {
+        if (tokens.size() != 3) return "ERROR: Usage: set <key> <value>\n";
+        store[tokens[1]] = tokens[2];
+        return "OK\n";
+    } else if (cmd == "get") {
+        if (tokens.size() != 2) return "ERROR: Usage: get <key>\n";
+        auto it = store.find(tokens[1]);
+        return it != store.end() ? it->second + "\n" : "NULL\n";
+    } else if (cmd == "delete") {
+        if (tokens.size() != 2) return "ERROR: Usage: delete <key>\n";
+        store.erase(tokens[1]);
+        return "OK\n";
+    }
+    return "ERROR: Unknown command\n";
+}
+
 void Server::run() {
     WSADATA wsa;
     WSAStartup(MAKEWORD(2,2), &wsa);
@@ -30,9 +64,15 @@ void Server::run() {
         recv(client_fd, buffer, 1024, 0);
 
         std::string command(buffer);
+         
+        //trim \r \n and trailing spaces 
+        while (!command.empty() && (command.back() == '\r' || command.back() == '\n' || command.back() == ' ')) {
+            command.pop_back();
+        }
         std::cout << "Received: " << command << std::endl;
 
-        std::string response = "OK\n";
+        std::vector<std::string> tokens = parse_command(command);
+        std::string response = handle_command(tokens);
         send(client_fd, response.c_str(), response.size(), 0);
 
         closesocket(client_fd);
