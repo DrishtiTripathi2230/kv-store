@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SOURCES
     src/main.cpp
     src/server.cpp
+    src/lru.cpp
 )
 
 add_executable(kvserver ${SOURCES})

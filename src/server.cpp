@@ -5,7 +5,7 @@
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
-Server::Server(int port) : port(port) {}
+Server::Server(int port) : port(port), store(5) {}
 
 //splits "set name Alice" into ["set", "name", "Alice"]
 
@@ -27,15 +27,14 @@ std::string Server::handle_command(const std::vector<std::string>& tokens) {
     const std::string& cmd = tokens[0];
     if (cmd == "set") {
         if (tokens.size() != 3) return "ERROR: Usage: set <key> <value>\n";
-        store[tokens[1]] = tokens[2];
+        store.put(tokens[1], tokens[2]);
         return "OK\n";
     } else if (cmd == "get") {
         if (tokens.size() != 2) return "ERROR: Usage: get <key>\n";
-        auto it = store.find(tokens[1]);
-        return it != store.end() ? it->second + "\n" : "NULL\n";
+        return store.get(tokens[1]) + "\n";
     } else if (cmd == "delete") {
         if (tokens.size() != 2) return "ERROR: Usage: delete <key>\n";
-        store.erase(tokens[1]);
+        store.remove(tokens[1]);
         return "OK\n";
     }
     return "ERROR: Unknown command\n";
