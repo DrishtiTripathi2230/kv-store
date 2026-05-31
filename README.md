@@ -5,7 +5,7 @@ A Redis-like key-value store built from scratch in C++.
 - [x] TCP server on port 6379
 - [x] GET/SET/DELETE commands
 - [x] LRU eviction
-- [ ] Persistence to disk
+- [x] Persistence to disk
 - [ ] Benchmarks vs Redis
 
 ## Build
