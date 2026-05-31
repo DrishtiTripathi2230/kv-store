@@ -5,7 +5,13 @@
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
-Server::Server(int port) : port(port), store(5) {}
+Server::Server(int port) : port(port), store(5), persistence("kv.aof") {
+    std::unordered_map<std::string, std::string> snapshot;
+    persistence.load(snapshot);
+    for (auto& [key, value] : snapshot) {
+        store.put(key, value);
+    }
+}
 
 //splits "set name Alice" into ["set", "name", "Alice"]
 
@@ -26,17 +32,19 @@ std::string Server::handle_command(const std::vector<std::string>& tokens) {
 
     const std::string& cmd = tokens[0];
     if (cmd == "set") {
-        if (tokens.size() != 3) return "ERROR: Usage: set <key> <value>\n";
-        store.put(tokens[1], tokens[2]);
-        return "OK\n";
-    } else if (cmd == "get") {
-        if (tokens.size() != 2) return "ERROR: Usage: get <key>\n";
-        return store.get(tokens[1]) + "\n";
-    } else if (cmd == "delete") {
-        if (tokens.size() != 2) return "ERROR: Usage: delete <key>\n";
-        store.remove(tokens[1]);
-        return "OK\n";
-    }
+    if (tokens.size() != 3) return "ERROR: Usage: set <key> <value>\n";
+    store.put(tokens[1], tokens[2]);
+    persistence.save(tokens[1], tokens[2]);  // ← add this
+    return "OK\n";
+} else if (cmd == "get") {
+    if (tokens.size() != 2) return "ERROR: Usage: get <key>\n";
+    return store.get(tokens[1]) + "\n";
+} else if (cmd == "delete") {
+    if (tokens.size() != 2) return "ERROR: Usage: delete <key>\n";
+    store.remove(tokens[1]);
+    persistence.remove(tokens[1]);  // ← add this
+    return "OK\n";
+}
     return "ERROR: Unknown command\n";
 }
 
@@ -57,25 +65,30 @@ void Server::run() {
     std::cout << "KV Store listening on port " << port << std::endl;
 
     while (true) {
-        SOCKET client_fd = accept(server_fd, nullptr, nullptr);
+    SOCKET client_fd = accept(server_fd, nullptr, nullptr);
 
-        char buffer[1024] = {};
-        recv(client_fd, buffer, 1024, 0);
+    char buffer[1024] = {};
+    int bytes = recv(client_fd, buffer, 1024, 0);
 
-        std::string command(buffer);
-         
-        //trim \r \n and trailing spaces 
-        while (!command.empty() && (command.back() == '\r' || command.back() == '\n' || command.back() == ' ')) {
-            command.pop_back();
-        }
-        std::cout << "Received: " << command << std::endl;
-
-        std::vector<std::string> tokens = parse_command(command);
-        std::string response = handle_command(tokens);
-        send(client_fd, response.c_str(), response.size(), 0);
-
+    if (bytes <= 0) {
         closesocket(client_fd);
+        continue;
     }
+
+    std::string command(buffer);
+         
+    //trim \r \n and trailing spaces 
+    while (!command.empty() && (command.back() == '\r' || command.back() == '\n' || command.back() == ' ')) {
+        command.pop_back();
+    }
+    std::cout << "Received: " << command << std::endl;
+
+    std::vector<std::string> tokens = parse_command(command);
+    std::string response = handle_command(tokens);
+    send(client_fd, response.c_str(), response.size(), 0);
+
+    closesocket(client_fd);
+}
 
     WSACleanup();
 }

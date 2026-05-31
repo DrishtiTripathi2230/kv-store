@@ -6,6 +6,7 @@ set(SOURCES
     src/main.cpp
     src/server.cpp
     src/lru.cpp
+    src/persistence.cpp
 )
 
 add_executable(kvserver ${SOURCES})
