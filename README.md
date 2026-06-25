@@ -99,18 +99,27 @@ When you run the server, it:
 1. Creates a **socket** — an endpoint for network communication
 2. **Binds** it to port 6380 — attaches it to that port on your machine
 3. **Listens** for incoming connections
-4. In a loop, **accepts** one client at a time, reads their command, processes it, sends a response, and closes the connection
+4. In a loop, **accepts** a client and immediately spawns a dedicated thread to handle it, so the server can go back to accepting the next client without waiting
 
 ```
-Client                        Server
-  |                              |
-  |------- TCP connect --------->|
-  |------- "set name Drishti" -->|
-  |<------ "OK" ----------------|
-  |------- disconnect -----------|
+Client A                      Server                      Client B
+
+|                             |                             |
+
+|------- TCP connect -------->|                             |
+
+|                             |<------- TCP connect --------|
+
+|------- "set name A" ------->| (thread 1)                  |
+
+|                             | (thread 2)<--- "set city B" |
+
+|<------ "OK" ----------------|                             |
+
+|                             |--------- "OK" -------------->|
 ```
 
-This is called a **one connection per request** model. Each command opens a new TCP connection, sends the command, gets a response, and closes. It's simple but not the most efficient approach (more on this in the drawbacks section).
+This is called a **thread-per-connection** model. Each client gets its own dedicated thread for the lifetime of their request, so multiple clients can be served at the same time instead of one at a time. All access to the shared store and AOF file is protected by a `std::mutex`, so reads/writes to the data itself remain safe even though sockets are handled in parallel (see Limitation #2 below for the tradeoff this introduces).
 
 ---
 
@@ -241,9 +250,10 @@ connect → send command → receive response → disconnect
 
 Opening a TCP connection involves a **3-way handshake** (SYN, SYN-ACK, ACK) which takes time. Real Redis clients use **persistent connections** — they open one connection and send thousands of commands through it without reconnecting. This overhead is the biggest reason the benchmark numbers are lower than what the store is actually capable of.
 
-### 2. Single-Threaded
+### 2. Coarse-Grained Locking (No Per-Key Concurrency)
 
-The server handles one client at a time. While it is processing one request, all other clients must wait. Redis uses an event-driven single-threaded model with I/O multiplexing (select/epoll) that handles thousands of clients efficiently. A production server would use multi-threading or async I/O.
+The server now uses a thread-per-connection model — each client is handled on its own thread, so multiple clients can connect and have their sockets processed in parallel. However, all access to the store and AOF file is protected by a single `std::mutex`, so only one command actually executes against the data at a time. Redis instead uses a single-threaded event loop with I/O multiplexing (select/epoll), avoiding locking overhead entirely by design. A further improvement here would be per-key locking or sharding the store across multiple mutexes to allow true concurrent writes to different keys.
+
 
 ### 3. LRU Capacity is Hardcoded
 
@@ -271,7 +281,7 @@ If the server crashes mid-write, the AOF file could be left in a corrupt state. 
 - How append-only files provide crash-safe persistence
 - The performance cost of per-connection overhead vs connection pooling
 - How Redis achieves its speed and what makes it production-grade
-
+- The tradeoffs between thread-per-connection concurrency and Redis's single-threaded event-loop model — and why coarse-grained locking is a reasonable first step but not the final answer for write-heavy concurrent workloads
 ---
 
 ## Tech Stack
